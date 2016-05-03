@@ -1,45 +1,49 @@
-from optparse import make_option
+from __future__ import unicode_literals
+from __future__ import absolute_import
+
 from datetime import datetime, timedelta
+import six
 import re
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from elastic_models.indexes import index_registry
 
+DURATION_RE = re.compile(
+    r"^(?:(?P<days>\d+)D)?"
+    r"(?:(?P<hours>\d+)H)?"
+    r"(?:(?P<minutes>\d+)M)?"
+    r"(?:(?P<seconds>\d+)S)?$",
+    flags=re.IGNORECASE)
+
+
 class IndexCommand(BaseCommand):
-    option_list = BaseCommand.option_list + (
-        make_option('--since', action="store", default='', dest='since',
-            help='Index data updated after this time.  yyyy-mm-dd[-hh:mm] or [#d][#h][#m][#s]'),
-        make_option('--limit', action="store", default='', dest='limit',
-            help='Index at most this many of each model.'),
-    )
-    args = '<app[.model] app[.model] ...>'
-    help = 'Creates and populates the search index.  If it already exists, it is deleted first.'
+    help = 'Creates and populates the search index. If it already exists, it is deleted first.'
 
-    duration_re = re.compile(
-        r"^(?:(?P<days>\d+)D)?"
-        r"(?:(?P<hours>\d+)H)?"
-        r"(?:(?P<minutes>\d+)M)?"
-        r"(?:(?P<seconds>\d+)S)?$",
-        flags=re.IGNORECASE)
+    def add_arguments(self, parser):
+        parser.add_argument('args', nargs='*', type=six.text_type)
+        parser.add_argument('--since', action="store", default='', dest='since',
+                            help='Index data updated after this time.  yyyy-mm-dd[-hh:mm] or [#d][#h][#m][#s]')
+        parser.add_argument('--limit', action="store", default='', dest='limit',
+                            help='Index at most this many of each model.')
 
-    def parse_date_time(self, input):
+    def parse_date_time(self, timestamp):
         try:
-            return datetime.strptime(input, "%Y-%m-%d-%H:%M")
+            return datetime.strptime(timestamp, "%Y-%m-%d-%H:%M")
         except ValueError:
             pass
 
         try:
-            return datetime.strptime(input, "%Y-%m-%d")
+            return datetime.strptime(timestamp, "%Y-%m-%d")
         except ValueError:
             pass
 
-        match = self.duration_re.match(input)
+        match = DURATION_RE.match(timestamp)
         if match:
             kwargs = dict((k, int(v)) for (k, v) in match.groupdict().items() if v is not None)
             return datetime.now() - timedelta(**kwargs)
 
-        raise ValueError("%s could not be interpereted as a datetime" % options['since'])
+        raise ValueError("%s could not be interpereted as a datetime" % timestamp)
 
     def get_indexes(self, args):
         indexes = index_registry.values()
@@ -52,3 +56,23 @@ class IndexCommand(BaseCommand):
                                       i.name) in args]
 
         return indexes
+
+    def handle(self, *args, **options):
+        indexes = self.get_indexes(args)
+        if not indexes:
+            raise CommandError("No matching indices found.")
+
+        since = None
+        if options['since']:
+            since = self.parse_date_time(options['since'])
+
+        limit = None
+        if options['limit']:
+            limit = int(options['limit'])
+
+        for index in indexes:
+            queryset = index.get_filtered_queryset(since=since, limit=limit)
+            self.handle_operation(index, queryset)
+
+    def handle_operation(self, search, queryset):
+        raise NotImplementedError

@@ -5,5 +5,4 @@ class ElasticModelsConfig(AppConfig):
     verbose_name = "Elastic Models"
     
     def ready(self):
-        from .receivers import register_receivers
-        register_receivers()
+        from . import receivers

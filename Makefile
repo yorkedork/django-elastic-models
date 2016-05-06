@@ -1,28 +1,22 @@
-# run the tests for python2 and python3
-test: .env2 .env3
-	@$(MAKE) test2
-	@$(MAKE) test3
+python ?= python3.5
+venv ?= .env
 
-# run tests for python 2
-test2: .env2
-	.env2/bin/python runtests.py
 
-# run tests for python 3
-test3: .env3
-	.env3/bin/python runtests.py
+# setup a virtualenv
+.env:
+	virtualenv -p $(python) $(venv)
+	# pip>8.1.0 do not currently allow successful installation
+	# of editable packages.
+	#
+	# See: https://mail-archive.com/debian-bugs-dist@lists.debian.org/msg1418435.html
+	$(venv)/bin/pip install pip==8.1.0
+	$(venv)/bin/pip install .[test]
+
+# run tests
+test: $(venv)
+	$(venv)/bin/python runtests.py
 
 # remove junk
 clean:
-	rm -rf .env2 .env3
+	rm -rf $(venv)
 	find . -iname "*.pyc" -or -iname "__pycache__" -delete
-
-# setup a virtualenv for python2
-.env2:
-	virtualenv --no-site-packages -p python2 .env2
-	.env2/bin/pip install -e .[test]
-
-# setup a virtualenv for python3 and install pip
-.env3:
-	python3 -m venv .env3
-	curl https://bootstrap.pypa.io/get-pip.py | .env3/bin/python
-	.env3/bin/pip install -e .[test]

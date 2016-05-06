@@ -1,3 +1,5 @@
+![build-status](https://api.shippable.com/projects/55a994efedd7f2c05276aa15/badge?branch=master)
+
 This is a package that allows indexing of django models using
 elasticsearch. It requires django, elasticsearch-py and a local instance of
 elasticsearch.

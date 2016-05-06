@@ -45,9 +45,7 @@ else:
 setup()
 
 from elastic_models.tests import SearchRunner
-
 test_runner = SearchRunner(verbosity=1)
-
-failures = test_runner.run_tests(['elastic_models', ])
+failures = test_runner.run_tests(['elastic_models.tests'])
 if failures:
     sys.exit(failures)

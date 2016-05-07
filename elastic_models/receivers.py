@@ -5,35 +5,41 @@ from datetime import timedelta
 import logging
 import six
 
+from django.utils.lru_cache import lru_cache
 from django.utils.timezone import now
-from django.core.cache import caches
 from django.dispatch import receiver
 from django.db.models import signals
+from django.core.cache import caches
+from django.conf import settings
 from django.apps import apps
 
 from .indexes import index_registry
 from .utils import merge
 
-logger = logging.getLogger(__name__)
-cache = caches['default']
-
 SUSPENSION_BUFFER_TIME = timedelta(seconds=10)
+USE_CACHE = getattr(settings, 'ELASTIC_MODELS_USE_CACHE', False)
+
+logger = logging.getLogger(__name__)
+
+if not USE_CACHE:
+    suspended_models = []
 
 
-def get_search_models(reinit=False):
-    search_models = cache.get('search_models', None)
-    if search_models is None or reinit:
-        search_models = set(m for (m, a) in index_registry.keys()
-                            if m in apps.get_models())
-        cache.set('search_models', search_models)
-    return search_models
+@lru_cache()
+def get_search_models():
+    return set(m for (m, a) in index_registry.keys()
+               if m in apps.get_models())
 
 def get_indexes_for_model(model):
     return [i for (m, n), i in index_registry.items()
             if issubclass(model, m)]
 
 def _is_suspended(model):
-    suspended_models = cache.get('suspended_models', [])
+    if USE_CACHE:
+        suspended_models = cache.get('suspended_models', [])
+    else:
+        global suspended_models
+
     for models in suspended_models:
         if model in models:
             return True
@@ -90,7 +96,10 @@ def handle_m2m(sender, **kwargs):
 
 @contextmanager
 def suspended_updates(models=None, permanent=False):
-    suspended_models = cache.get('suspended_models', [])
+    if USE_CACHE:
+        suspended_models = cache.get('suspended_models', [])
+    else:
+        global suspended_models
 
     try:
         search_models = get_search_models()
@@ -100,13 +109,15 @@ def suspended_updates(models=None, permanent=False):
 
         start = now() - SUSPENSION_BUFFER_TIME
         suspended_models.append(models)
-        cache.set('suspended_models', suspended_models)
+        if USE_CACHE:
+            cache.set('suspended_models', suspended_models)
 
         yield
 
     finally:
         suspended_models.remove(models)
-        cache.set('suspended_models', suspended_models)
+        if USE_CACHE:
+            cache.set('suspended_models', suspended_models)
 
         if permanent is True:
             return

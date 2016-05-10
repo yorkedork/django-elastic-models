@@ -1,13 +1,13 @@
-import logging
 from contextlib import contextmanager
 from datetime import timedelta
+import logging
 
-import six
-
+from django.utils.timezone import now
+from django.utils import six
+from django.dispatch import receiver
 from django.db.models import signals
 from django.db import models
 from django.dispatch import receiver
-from django.utils.timezone import now
 
 from .indexes import index_registry
 from .utils import merge

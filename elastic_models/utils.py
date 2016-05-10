@@ -1,6 +1,15 @@
-from itertools import chain
+from __future__ import unicode_literals
+from __future__ import absolute_import
 
+from itertools import chain
+import importlib
+import logging
+
+from django.utils.module_loading import module_has_submodule
 from django.core.paginator import Paginator, Page
+from django.apps import apps
+
+logger = logging.getLogger(__name__)
 
 
 class SearchPaginator(Paginator):
@@ -48,3 +57,21 @@ def merge(items, overwrite=False, path=()):
             return items[-1]
         raise ValueError("Collision while merging.  Path: %s, values: %s"
                          % (path, items))
+
+def autoload_submodules(submodules):
+    """
+    Autoload the given submodules for all installed apps.
+    """
+    for app in apps.get_app_configs():
+        logger.debug("Analyzing app '%s' for modules '%s'" % (app, submodules))
+        for submodule in submodules:
+            dotted_path = "{0}.{1}".format(app.name, submodule)
+            try:
+                importlib.import_module(dotted_path)
+            except:
+                if module_has_submodule(app.module, submodule):
+                    msg = "Trouble importing module '%s'"
+                    logger.warn(msg % (dotted_path))
+                    raise
+                else:
+                    logger.debug("Imported module '%s'" % (dotted_path))

@@ -3,10 +3,10 @@ from __future__ import absolute_import
 from contextlib import contextmanager
 from datetime import timedelta
 import logging
-import six
 
 from django.utils.lru_cache import lru_cache
 from django.utils.timezone import now
+from django.utils import six
 from django.dispatch import receiver
 from django.db.models import signals
 from django.core.cache import caches

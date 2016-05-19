@@ -61,7 +61,7 @@ class Index(FieldMappingMixin):
     def get_dependencies(self):
         dependencies = self._meta.dependencies
         for model, query in dependencies.items():
-            if isinstance(model, six.string_types):
+            if isinstance(model, six.text_type):
                 (app_name, model_name) = model.split('.')
                 model_cls = apps.get_model(app_name, model_name)
                 dependencies.pop(model)

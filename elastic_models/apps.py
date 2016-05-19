@@ -8,5 +8,4 @@ class ElasticModelsConfig(AppConfig):
     
     def ready(self):
         autoload_submodules(['indexes'])
-        from .receivers import register_receivers
-        register_receivers()
+        from . import receivers

@@ -1,4 +1,4 @@
-python ?= python3.4
+python ?= python3.5
 venv ?= .env
 
 
@@ -15,6 +15,14 @@ venv ?= .env
 # run tests
 test: .env
 	$(venv)/bin/python runtests.py
+
+# update WDT PYPI instance
+pypi_release: clean $(venv)
+	$(venv)/bin/python setup.py bdist_wheel --universal
+	@for archive in `ls dist`; do \
+            scp dist/$${archive} rc.pdx.edu:/tmp/; \
+            ssh rc.pdx.edu sg arc -c "\"mv /tmp/$${archive} /vol/www/cdn/pypi/dist/\""; \
+        done
 
 # remove junk
 clean:
